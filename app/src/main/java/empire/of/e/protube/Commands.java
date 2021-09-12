@@ -3,7 +3,6 @@ public class Commands {
 		static String cmd = "JavaScript:";
 		public static String addVideoFrame(String url) {
 
-				String sel = Smasher.titleName;
 			  return cmd
 						+ "setTimeout(function(){ "
 						// add frame
@@ -114,7 +113,6 @@ public class Commands {
 				return cmd
 						+ "setTimeout(function(){ "
 						+ "var video = document.getElementById(\"playerContent\");"
-						+ "video.pause();"
 						+ "video.src='';"
 						+ "video.load();"
 						+ "video.play();"

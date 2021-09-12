@@ -7,27 +7,53 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.IBinder;
 import android.support.v4.app.NotificationCompat;
+import android.content.res.Configuration;
 
 public class Notify extends Service { 
 
-		int notifyID = 6272;
+		static int notifyID = 6272;
 		static String title;
 		static String descr;
-
-		NotificationManager notiManager;
+		static NotificationCompat.Builder builder;
+		static NotificationManager notiManager;
 		@Override
 		public void onDestroy() {
 				notiManager.cancel(notifyID);
 				super.onDestroy();
 		}
 
+
+		@Override
+		public void onLowMemory() {
+				// TODO: Implement this method
+				//	super.onLowMemory();
+		}
+
 		@Override
 		public void onTrimMemory(int level) {
 				// TODO: Implement this method
-		  	//	super.onTrimMemory(level);
+				//super.onTrimMemory(level);
 		}
 
+		@Override
+		public void onConfigurationChanged(Configuration newConfig) {
+				// TODO: Implement this method
+				//super.onConfigurationChanged(newConfig);
+		}
 
+		
+		static int numMessages = 0;
+		public static void updateNotification(String description)
+		{
+
+				builder.setContentText(description)
+						.setNumber(++numMessages);
+				// Because the ID remains unchanged, the existing notification is
+				// updated.
+				notiManager.notify(
+						notifyID,
+						builder.build());
+		}
 
     @Override
     public void onTaskRemoved(Intent rootIntent) {
@@ -37,7 +63,7 @@ public class Notify extends Service {
 
 		@Override
 		public int onStartCommand(Intent intent, int flags, int startId) {
-				NotificationCompat.Builder builder =
+				builder =
             new NotificationCompat.Builder(this)
 						.setSmallIcon(R.drawable.ic_launcher)
 						.setAutoCancel(false)

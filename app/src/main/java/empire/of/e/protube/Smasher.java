@@ -20,11 +20,13 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AlertDialog;
 import android.util.AttributeSet;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.View.OnLongClickListener;
+import android.view.ViewTreeObserver;
 import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
@@ -70,7 +72,9 @@ public class Smasher extends Activity {
 		Boolean shownPermWarn;
 		int lastQ;
 		String lastUrl;
-
+		private SwipeRefreshLayout mySwipeRefreshLayout;
+		private ViewTreeObserver.OnScrollChangedListener mOnScrollChangedListener;
+		
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -89,6 +93,30 @@ public class Smasher extends Activity {
 				createNotificationChannel();
 				notify = new Intent(this, Notify.class);
 				web = findViewById(R.id.frame);
+				mySwipeRefreshLayout = findViewById(R.id.swipeContainer);
+        mySwipeRefreshLayout.setOnRefreshListener(
+						new SwipeRefreshLayout.OnRefreshListener() {
+								@Override
+								public void onRefresh() {
+									mySwipeRefreshLayout.setRefreshing(true);
+								   web.reload();
+								}
+		
+						}
+        );
+				mySwipeRefreshLayout.getViewTreeObserver().addOnScrollChangedListener(mOnScrollChangedListener =
+																																							new ViewTreeObserver.OnScrollChangedListener() {
+																																									@Override
+																																									public void onScrollChanged() {
+																																											if (web.getScrollY() == 0)
+																																													mySwipeRefreshLayout.setEnabled(true);
+																																											else
+																																													mySwipeRefreshLayout.setEnabled(false);
+
+																																									}
+																																							});
+				
+				
 				webset = web.getSettings();
 				web.setOnLongClickListener(new OnLongClickListener() {
 								@Override
@@ -105,8 +133,7 @@ public class Smasher extends Activity {
 				webset.setJavaScriptCanOpenWindowsAutomatically(true);
 				webset.setDomStorageEnabled(true);
 				webset.setAppCacheEnabled(true);
-				webset.setAppCacheMaxSize(4096);
-				webset.setCacheMode(webset.LOAD_CACHE_ELSE_NETWORK);
+				webset.setCacheMode(webset.LOAD_NORMAL);
 				webset.setDisplayZoomControls(false);
 				web.setScrollBarStyle(WebView.SCROLLBARS_OUTSIDE_OVERLAY);
 				webset.setUserAgentString(USER_AGENT());
@@ -219,6 +246,18 @@ public class Smasher extends Activity {
 						doStart();
 				}
     }
+
+		@Override
+		protected void onStop() {
+				mySwipeRefreshLayout.getViewTreeObserver().removeOnScrollChangedListener(mOnScrollChangedListener);
+				super.onStop();
+		}
+		
+		
+		
+		
+		
+		
 		public void doStart() {
 				String search = "Top New Music";
 				lastUrl = pr3fs.getString("lastLoad", ("https://m.youtube.com/results?search_query=" + URLEncoder.encode(search) + "&sp=EgIQAw"));
@@ -305,7 +344,12 @@ public class Smasher extends Activity {
 																removeUnderVideoAds(view, url);
 																//  toast("removing banner ads");
 																String streamURL = getLinkBrute(url);
-																showVideo(view, streamURL);
+																
+																if(getVideoState(currentURL) == 0)
+																{
+																		showVideo(view, streamURL);
+																}
+																
 																//	toast("showing video");
 														}
 														else {
@@ -313,12 +357,11 @@ public class Smasher extends Activity {
 																//			toast("removing ads");
 																updatePlayingVideo(view, getLinkBrute(url));
 																//			toast("updating video");
-																if (!isScreenVisible) {
+																if (notiVisible) {
 																		mainThread.runOnUiThread(new Runnable(){
 																						@Override
 																						public void run() {
-																								Notify.descr = titleName;
-																								startService(notify);
+																								Notify.updateNotification(titleName);
 																						}
 																				});
 																}
@@ -328,6 +371,7 @@ public class Smasher extends Activity {
 
 														if (videoRemoved == false) {
 																videoRemoved = true;
+																//toast("Hit Remove");
 																hideVideo(view);
 																//toast("removing video");
 														}
@@ -345,12 +389,15 @@ public class Smasher extends Activity {
 						}).start();
 
 		}
+
+
 		private void hideVideo(final WebView view) {
 				mainThread.runOnUiThread(new Runnable(){
 								@Override
 								public void run() {
 										view.loadUrl(Commands.removeVideoFrame());
 										setStatusColour(R.color.colorPrimary);
+
 								}
 						});
 
@@ -467,6 +514,14 @@ public class Smasher extends Activity {
 						loads++;
 						super.doUpdateVisitedHistory(view, url, isReload);
 				}
+
+				@Override
+				public void onPageFinished(WebView view, String url) {
+						mySwipeRefreshLayout.setRefreshing(false);
+						super.onPageFinished(view, url);
+				}
+				
+				
 		};
 
 
@@ -581,11 +636,13 @@ public class Smasher extends Activity {
 
 		String api = "https://youtube-downloader-v3.herokuapp.com/";
 		String apiBackup = "https://backup-plug.herokuapp.com/";
-
+    boolean useDirect = false;
 		private String getLinkBrute(String url) {
-				 
+
 				String loaded = "";
 				String link =  "";
+				if(!useDirect)
+				{
 				try {
 						loaded = GetPageContent(api + "video_info.php?url=" + url);
 						JSONObject  jsonObj = new JSONObject(loaded);
@@ -598,24 +655,32 @@ public class Smasher extends Activity {
 				if (loaded.contains("error")) {
 						errors++;
 						//toast("error "+errors);
-						if (errors <= 3) {
+						if (errors <= 2) {
 								return getLinkBrute(url);
 						}
 						else {
-								if(api != apiBackup)
-								{
-								errors = 0;
-								api = apiBackup;
-								return getLinkBrute(url);
-								}
-								else
-								{
-										toast("SERVER ERROR : Using Direct Links");
+								if (api != apiBackup) {
 										errors = 0;
-										return getDownloadLinks(url,false,false);
+										api = apiBackup;
+										return getLinkBrute(url);
+								}
+								else {
+										//	toast("SERVER ERROR : Using Direct Links");
+										errors = 0;
+										useDirect = true;
+										return getDownloadLinks(url, false, false);
 								}
 						}
+						
 				}
+				}
+				else
+				{
+						errors = 0;
+						useDirect = true;
+						return getDownloadLinks(url, false, false);
+				}
+				
 				return api + "stream.php?url=" + URLEncoder.encode(Uri.encode(link));
 		}
 
@@ -823,13 +888,15 @@ public class Smasher extends Activity {
 
 
 		boolean isScreenVisible= true;
-
+		boolean notiVisible = false;
 		@Override
 		protected void onPause() {
 				//	Notify.title = getString(R.string.app_name);
 				if (isConnected() && isScreenVisible) {
 						Notify.descr = titleName;
 						startService(notify);
+						notiVisible = true;
+						isScreenVisible = false;
 				}
 				CookieSyncManager.getInstance().stopSync();
 				super.onPause();
@@ -840,12 +907,9 @@ public class Smasher extends Activity {
 				if (!isScreenVisible) {
 						stopService(notify);
 						isScreenVisible = true;
-				}
-				else {
-
+						notiVisible = false;
 				}
 				CookieSyncManager.getInstance().startSync();
-
 				super.onResume();
 		}
 
