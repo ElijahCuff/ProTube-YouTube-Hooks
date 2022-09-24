@@ -1,5 +1,7 @@
-# ProTube
-ProTube was my attempt at making a JavaScript browser extension for Android devices
+# ProTube, YouTube JS Hooks
+ProTube was my attempt at making a JavaScript browser extension for Android devices.
+
+
    
      
 > The main concept was designed to implement JavaScript hooking and reflection similiar to "JavaScript Browser Extensions" on Desktop computers.
@@ -16,7 +18,8 @@ Purely for Testing purposes, i also tried to make it support background playback
    
     
 ## Features     
-Ad' Free browsing of m.youtube.com      
+> Ad' Free browsing of YouTube with similar features to Premium.
+     
 - Page and In-Video advertising removal       
 - Background Playback"ish"    
 - 3 Server cycling on errors       
